@@ -1,3 +1,10 @@
+---
+title: "Lab 7: Murder in SQL City"
+author: Sam Minard
+output-file: html
+---
+
+
 For this lab, you will be joining and filtering related data sets to solve a murder mystery!
 
 # Part 1: GitHub Workflow
@@ -64,11 +71,111 @@ Detective Wickham reaches out to you...
 **Step 1: Find the police report in `crime_scene_report`. Then used the information in the report to move on to the next data source based on the information learned.**
 
 ```{r}
+#| label: find-report
 # Code for looking at the relevant crime scene report.
+#distinct(crime_scene_report)
+crime_scene_report |> 
+  filter(city == "SQL City",
+         type == "murder",
+         date == 20180115)
 
+#"Security footage shows that there were 2 witnesses. The first witness lives at the last house on "Northwestern Dr". The second witness, named Annabel, lives somewhere on "Franklin Ave"."
 
 ```
 
+
+```{r}
+#| label: identify-witnesses
+
+#find witness 1
+person |> 
+  filter(address_street_name == "Northwestern Dr",
+         address_number == max(address_number))
+
+#find witness 2
+person |> 
+  filter(address_street_name == "Franklin Ave",
+         str_detect(name, "Annabel")) 
+
+``` 
+
+```{r}
+#| label: interviews
+
+#find out what the witnesses said
+interview |> 
+  filter(person_id %in% c(14887, 16371)) 
+
+```
+
+```{r}
+#| label: gym-clues
+
+#join check in and member data, filter for the right id on the right day
+get_fit_now_member |> 
+  left_join(get_fit_now_check_in, by = c("id" = "membership_id")) |> 
+  filter(check_in_date == 20180109,
+         str_detect(id, "48Z")) |> 
+  select(name, id, check_in_date, membership_status)
+```
+
+```{r}
+#| label: license-plate-clue
+
+#find out who has that license plate
+#join drivers license with person and memberid and filter for the right characteristics
+
+drivers_license |> 
+  left_join(person, by = c("id" = "license_id")) |> 
+  left_join(get_fit_now_member, by = c("id" = "person_id")) |> 
+  filter(str_detect(plate_number, "H42W"),
+         gender == "male") |> 
+  select(plate_number, name.x, id)
+```
+```{r}
+#| label: check-transcripts
+
+#find which one has a transcript
+interview |> 
+  left_join(person, by = c("person_id" = "id")) |> 
+  filter(name == "Jeremy Bowers" |
+         name == "Tushar Chandra") |> 
+  select(name, transcript)
+#seems only Bowers does
+```
+
+
+
+
+```{r}
+#| label: new-suspect-lady
+
+#combine relevant info
+
+person |> 
+  left_join(drivers_license, by = c("license_id" = "id")) |> 
+  left_join(facebook_event_checkin, by = c("id" = "person_id")) |> 
+  filter(gender == "female",
+         car_make == "Tesla",
+         car_model == "Model S",
+         hair_color == "red",
+         height %in% c(65:67),
+         str_detect(event_name, "Symphony"))
+
+```
+
+
+
+## Report
+
+Two witnesses: Annabel Miller and Morty Schapiro.
+
+Annabel said: "I heard a gunshot and then saw a man run out. He had a "Get Fit Now Gym" bag. The membership number on the bag started with "48Z". Only gold members have those bags. The man got into a car with a plate that included "H42W"."
+
+Morty said: "I saw the murder happen, and I recognized the killer from my gym when I was working out last week on January the 9th."
+
+Suspect: Jeremy Bowers
+He said: "I was hired by a woman with a lot of money. I don't know her name but I know she's around 5'5" (65") or 5'7" (67"). She has red hair and she drives a Tesla Model S. I know that she attended the SQL Symphony Concert 3 times in December 2017."
 
 
 
@@ -91,5 +198,5 @@ tables manually. Functions from `stringr` and `lubridate` will also be useful.
 ::: callout-note
 ## And the final suspect is...
 
-*put the name of the person responsible for the murder here.*
+Miranda Priestly
 :::
